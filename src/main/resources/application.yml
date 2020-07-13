@@ -1,0 +1,47 @@
+server:
+  port: 9000
+spring:
+  kafka:
+    consumer:
+      bootstrap-servers: localhost:9092
+      group-id: group_id
+      auto-offset-reset: earliest
+      max-poll-records: 3
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer      
+      properties:
+        isolation.level: read_committed
+        spring:
+          json:
+            value:
+              default: 
+                type: com.example.domain.EventMessage  
+            trusted:
+                  packages: com.example
+    producer:
+      bootstrap-servers: localhost:9092
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties: 
+          spring: 
+            json: 
+              add: 
+                type: 
+                  headers: false
+      transaction-id-prefix: tx. 
+app:
+  consumer:
+    subscribed-to: 
+      topic: test    
+    group-id: test-consumer-group
+    publish-to:
+      topic: test1
+  dlt: test.DLT
+     
+logging:  
+  file: c:/tmp/app.log
+  level:
+    root: ERROR
+    org.springframework.web: ERROR
+    com.example: INFO
+    
