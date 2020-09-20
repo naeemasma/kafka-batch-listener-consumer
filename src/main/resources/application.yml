@@ -4,7 +4,7 @@ spring:
   kafka:
     consumer:
       bootstrap-servers: localhost:9092
-      group-id: group_id
+      group-id: test-consumer-group
       auto-offset-reset: earliest
       max-poll-records: 3
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -32,10 +32,13 @@ spring:
 app:
   consumer:
     subscribed-to: 
-      topic: test    
-    group-id: test-consumer-group
+      topic: test
     publish-to:
       topic: test1
+  producer:
+    producer-per-consumer-partition: false
+    sub-batch-per-partition: false
+    client-id: test0_client_id
   dlt: test.DLT
      
 logging:  
