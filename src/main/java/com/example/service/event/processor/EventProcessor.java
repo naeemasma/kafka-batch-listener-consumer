@@ -15,6 +15,7 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.adapter.DefaultBatchToRecordAdapter;
 import org.springframework.kafka.support.converter.RecordMessageConverter;
 import org.springframework.kafka.support.converter.StringJsonMessageConverter;
@@ -60,7 +61,10 @@ public class EventProcessor {
 	private boolean producerPerConsumerPartition;
 	
 	@Value("${app.producer.sub-batch-per-partition}")
-	private boolean subBatchPerPartition; 
+	private boolean subBatchPerPartition;	
+
+	@Value("${app.consumer.eos-mode}")
+	private String eosMode;
 	
 	@Value("${app.producer.client-id}")
 	private String producerClientId;
@@ -95,6 +99,7 @@ public class EventProcessor {
 		  ConcurrentKafkaListenerContainerFactory<Object, Object>
 		  factory = new ConcurrentKafkaListenerContainerFactory<>();
 		  configurer.configure(factory, kafkaConsumerFactory);
+		  factory.getContainerProperties().setEosMode(ContainerProperties.EOSMode.valueOf(eosMode));
 		  template.setTransactionIdPrefix(this.transactionIdPrefix);
 		  factory.setBatchListener(true);
 		  factory.setBatchToRecordAdapter(new DefaultBatchToRecordAdapter<>((record, ex) ->  {;

@@ -35,6 +35,7 @@ app:
       topic: test
     publish-to:
       topic: test1
+    eos-mode: BETA
   producer:
     producer-per-consumer-partition: false
     sub-batch-per-partition: false
