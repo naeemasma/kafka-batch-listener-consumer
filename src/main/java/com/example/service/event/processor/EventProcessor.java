@@ -26,8 +26,6 @@ import org.springframework.messaging.handler.annotation.Headers;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-
-import com.example.constants.Constants;
 import com.example.domain.EventMessage;
 import com.example.domain.EventMessageTypeTwo;
 import com.example.service.EventMessageService;
@@ -60,7 +58,7 @@ public class EventProcessor {
 	@Value("${app.producer.producer-per-consumer-partition}")
 	private boolean producerPerConsumerPartition;
 	
-	@Value("${app.producer.sub-batch-per-partition}")
+	@Value("${app.consumer.sub-batch-per-partition}")
 	private boolean subBatchPerPartition;	
 
 	@Value("${app.consumer.eos-mode}")
@@ -100,6 +98,7 @@ public class EventProcessor {
 		  factory = new ConcurrentKafkaListenerContainerFactory<>();
 		  configurer.configure(factory, kafkaConsumerFactory);
 		  factory.getContainerProperties().setEosMode(ContainerProperties.EOSMode.valueOf(eosMode));
+		  factory.getContainerProperties().setSubBatchPerPartition(subBatchPerPartition);
 		  template.setTransactionIdPrefix(this.transactionIdPrefix);
 		  factory.setBatchListener(true);
 		  factory.setBatchToRecordAdapter(new DefaultBatchToRecordAdapter<>((record, ex) ->  {;
@@ -112,12 +111,12 @@ public class EventProcessor {
 						return true;
 			        });
 	        }));
-		  logger.info(String.format("KafkaTemplate.transactionIdPrefix: %s - subBatchPerPartition: %s -  producerPerConsumerPartition: %s" +
-			  		 " - ConcurrentKafkaListenerContainerFactory EOS Mode: %s", 
+		  logger.info(String.format("KafkaTemplate.transactionIdPrefix: %s -  producerPerConsumerPartition: %s" +
+			  		 " - ConcurrentKafkaListenerContainerFactory EOS Mode: %s - subBatchPerPartition: %s ", 
 					  this.kafkaTemplate.getTransactionIdPrefix()
-					  , this.kafkaTemplate.getProducerFactory().getConfigurationProperties().get(Constants.SUB_BATCH_PER_PARTITION)
 					  , this.kafkaTemplate.getProducerFactory().isProducerPerConsumerPartition(),
 					  factory.getContainerProperties().getEosMode()
+					  , factory.getContainerProperties().getSubBatchPerPartition()
 					  ));	  
 		   return factory;  
 	  }
@@ -171,7 +170,6 @@ public class EventProcessor {
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, Class.forName(valueSerializer));
         props.put(ProducerConfig.CLIENT_ID_CONFIG,producerClientId);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, Class.forName(keySerializer));
-        props.put(Constants.SUB_BATCH_PER_PARTITION, subBatchPerPartition);
         return props;
     }
     

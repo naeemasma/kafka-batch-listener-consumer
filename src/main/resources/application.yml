@@ -36,9 +36,9 @@ app:
     publish-to:
       topic: test1
     eos-mode: BETA
+    sub-batch-per-partition: false
   producer:
     producer-per-consumer-partition: false
-    sub-batch-per-partition: false
     client-id: test0_client_id
   dlt: test.DLT
      
