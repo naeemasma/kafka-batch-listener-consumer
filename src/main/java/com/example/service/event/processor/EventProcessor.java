@@ -1,41 +1,31 @@
 package com.example.service.event.processor;
 
-import org.apache.kafka.clients.producer.ProducerConfig;
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.kafka.ConcurrentKafkaListenerContainerFactoryConfigurer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
-import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.adapter.DefaultBatchToRecordAdapter;
 import org.springframework.kafka.support.converter.RecordMessageConverter;
 import org.springframework.kafka.support.converter.StringJsonMessageConverter;
-import org.springframework.kafka.transaction.ChainedKafkaTransactionManager;
-import org.springframework.kafka.transaction.KafkaTransactionManager;
 import org.springframework.messaging.MessageHeaders;
 import org.springframework.messaging.handler.annotation.Headers;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import com.example.domain.EventMessage;
-import com.example.domain.EventMessageTypeTwo;
 import com.example.service.EventMessageService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import javax.sql.DataSource;
 
 @Service
 @Configuration
@@ -47,32 +37,18 @@ public class EventProcessor {
 	@Value("${app.dlt}")
 	private String dlt;
 	
-	@Value("${spring.kafka.producer.transaction-id-prefix}")
-	private String transactionIdPrefix;
-	
-	@Value("${spring.kafka.producer.bootstrap-servers}")
-	private String producer_bootstrap_servers;
-	
-	@Value("${app.producer.producer-per-consumer-partition}")
-	private boolean producerPerConsumerPartition;
-	
 	@Value("${app.consumer.sub-batch-per-partition}")
 	private boolean subBatchPerPartition;	
 
 	@Value("${app.consumer.eos-mode}")
 	private String eosMode;
 	
-	@Value("${app.producer.client-id}")
-	private String producerClientId;
-	
-	@Value("${spring.kafka.producer.key-serializer}")
-	private String keySerializer; 
-	
-	@Value("${spring.kafka.producer.value-serializer}")
-	private String valueSerializer; 
-	
 	@Autowired
     private KafkaTemplate<Object, Object> kafkaTemplate;
+	
+	@Autowired
+	@Qualifier("standaloneTransactionKafkaTemplate")
+    private KafkaTemplate<Object, Object> standaloneTransactionKafkaTemplate;
 			
 	@Autowired
     EventMessageService eventMessageService;
@@ -82,9 +58,9 @@ public class EventProcessor {
       @Bean 
 	  public RecordMessageConverter converter() { 
 		  return new StringJsonMessageConverter(); 
-	  }      
-	    	  
-	  @Bean 
+	  }   
+      
+      @Bean 
 	  public ConcurrentKafkaListenerContainerFactory<Object, Object> kafkaListenerContainerFactory(
 		  ConcurrentKafkaListenerContainerFactoryConfigurer configurer,
 		  ConsumerFactory<Object, Object> kafkaConsumerFactory, 
@@ -108,7 +84,7 @@ public class EventProcessor {
 						return true;
 			        });
 	        }));
-		  logger.info(String.format("KafkaTemplate.transactionIdPrefix: %s -  producerPerConsumerPartition: %s" +
+		  logger.info(String.format("KafkaTemplate.transactionIdPrefix: %s -  producerPerConsumerPartition: %s -" +
 			  		 " - ConcurrentKafkaListenerContainerFactory EOS Mode: %s - subBatchPerPartition: %s ", 
 					  this.kafkaTemplate.getTransactionIdPrefix()
 					  , this.kafkaTemplate.getProducerFactory().isProducerPerConsumerPartition(),
@@ -117,13 +93,13 @@ public class EventProcessor {
 					  ));	  
 		   return factory;  
 	  }
-	  
+	    	  
 	@KafkaListener(topics = "#{'${app.consumer.subscribed-to.topic}'.split(',')}", containerFactory="kafkaListenerContainerFactory", groupId = "${spring.kafka.consumer.group-id}")
 	public void consume(@Payload List<EventMessage> eventMessages,
 			@Headers MessageHeaders headers) throws Exception {
 		for (EventMessage eventMessage : eventMessages) 
 		{
-		  logger.info(String.format("Consumed message: %s", eventMessage));
+		  logger.info(String.format("Consuming message: %s - KafkaTemplate.transactionIdPrefix: %s", eventMessage, this.kafkaTemplate.getTransactionIdPrefix()));
 		  EventMessage msg = new EventMessage(eventMessage.getDescription()+"");
 		  eventMessageService.insert(msg);
 		  this.kafkaTemplate.send(topicToPublish,eventMessage);
@@ -145,11 +121,11 @@ public class EventProcessor {
     }
     
     public void sendEventMessage(String topic, String input) {
-    	this.kafkaTemplate.executeInTransaction(kTemplate -> {
+    	standaloneTransactionKafkaTemplate.executeInTransaction(kTemplate -> {
     	    StringUtils.commaDelimitedListToSet(input).stream()
     	      .map(s -> new EventMessage(s))
     	      .forEach(evtMsg -> {
-    	    	  logger.info(String.format("Producing message: %s", evtMsg.getDescription()));
+    	    	  logger.info(String.format("Producing message: %s - standaloneTransactionKafkaTemplate.transactionIdPrefix: %s", evtMsg.getDescription(), standaloneTransactionKafkaTemplate.getTransactionIdPrefix()));
     	    	  if (evtMsg.getDescription().toUpperCase().startsWith("PRODUCER_ERROR")) {
     	    		    throw new RuntimeException("ProducerError");
     	    		  }
@@ -157,24 +133,5 @@ public class EventProcessor {
     	    	  });
     	    return null;
     	  });
-    }
-    
-
-    @Bean
-    public Map<String, Object> producerConfigs() throws ClassNotFoundException {
-        Map<String, Object> props = new HashMap<>();
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, producer_bootstrap_servers);
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, Class.forName(valueSerializer));
-        props.put(ProducerConfig.CLIENT_ID_CONFIG,producerClientId);
-        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, Class.forName(keySerializer));
-        return props;
-    }
-    
-    @Bean
-    public ProducerFactory<Object, Object> kafkaProducerFactory() throws ClassNotFoundException {
-    	DefaultKafkaProducerFactory<Object, Object> pf=  new DefaultKafkaProducerFactory<>(producerConfigs());
-        pf.setProducerPerConsumerPartition(producerPerConsumerPartition);
-        pf.setTransactionIdPrefix(this.transactionIdPrefix);
-        return pf;
     }
 }

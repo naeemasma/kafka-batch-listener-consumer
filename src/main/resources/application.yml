@@ -40,6 +40,8 @@ app:
   producer:
     producer-per-consumer-partition: false
     client-id: test0_client_id
+    standalone:
+      transaction-id-prefix: tx.stln.
   dlt: test.DLT
      
 logging:  
