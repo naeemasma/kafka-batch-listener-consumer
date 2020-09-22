@@ -40,8 +40,6 @@ import javax.sql.DataSource;
 @Service
 @Configuration
 public class EventProcessor {
-
-	public final static String CONTEXT_RECORD="record";
 	
 	@Value("${app.consumer.publish-to.topic}")
 	private String topicToPublish;
@@ -99,7 +97,6 @@ public class EventProcessor {
 		  configurer.configure(factory, kafkaConsumerFactory);
 		  factory.getContainerProperties().setEosMode(ContainerProperties.EOSMode.valueOf(eosMode));
 		  factory.getContainerProperties().setSubBatchPerPartition(subBatchPerPartition);
-		  template.setTransactionIdPrefix(this.transactionIdPrefix);
 		  factory.setBatchListener(true);
 		  factory.setBatchToRecordAdapter(new DefaultBatchToRecordAdapter<>((record, ex) ->  {;
 			  template.executeInTransaction(kTemplate ->{
