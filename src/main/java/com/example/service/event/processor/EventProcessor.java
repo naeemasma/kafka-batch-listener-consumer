@@ -1,7 +1,6 @@
 package com.example.service.event.processor;
 
 import java.util.List;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,8 +40,8 @@ public class EventProcessor {
 	private boolean subBatchPerPartition;	
 
 	@Value("${app.consumer.eos-mode}")
-	private String eosMode;
-	
+	private String eosMode;	
+		
 	@Autowired
     private KafkaTemplate<Object, Object> kafkaTemplate;
 	
@@ -74,19 +73,19 @@ public class EventProcessor {
 		  factory.getContainerProperties().setEosMode(ContainerProperties.EOSMode.valueOf(eosMode));
 		  factory.getContainerProperties().setSubBatchPerPartition(subBatchPerPartition);
 		  factory.setBatchListener(true);
-		  factory.setBatchToRecordAdapter(new DefaultBatchToRecordAdapter<>((record, ex) ->  {;
+		  factory.setBatchToRecordAdapter(new DefaultBatchToRecordAdapter<>((record, ex) ->  {
 			  template.executeInTransaction(kTemplate ->{
 			    	try {
 			    		kTemplate.send(dlt, (EventMessage)record.value());
-			    	} catch (Exception e) {
+			    	} catch (Exception e) {			    		
 						logger.error(e.getMessage());
 					}
 						return true;
 			        });
 	        }));
-		  logger.info(String.format("KafkaTemplate.transactionIdPrefix: %s -  producerPerConsumerPartition: %s -" +
-			  		 " - ConcurrentKafkaListenerContainerFactory EOS Mode: %s - subBatchPerPartition: %s ", 
-					  this.kafkaTemplate.getTransactionIdPrefix()
+		  logger.info(String.format("KafkaTemplate.transactionIdPrefix: %s -  producerPerConsumerPartition: %s" 
+		       + " -ConcurrentKafkaListenerContainerFactory EOS Method: %s - SubBatchPerPartition: %s"
+					  ,this.kafkaTemplate.getTransactionIdPrefix()
 					  , this.kafkaTemplate.getProducerFactory().isProducerPerConsumerPartition(),
 					  factory.getContainerProperties().getEosMode()
 					  , factory.getContainerProperties().getSubBatchPerPartition()
@@ -94,12 +93,15 @@ public class EventProcessor {
 		   return factory;  
 	  }
 	    	  
-	@KafkaListener(topics = "#{'${app.consumer.subscribed-to.topic}'.split(',')}", containerFactory="kafkaListenerContainerFactory", groupId = "${spring.kafka.consumer.group-id}")
+	@KafkaListener(topics = "#{'${app.consumer.subscribed-to.topic}'.split(',')}", containerFactory="kafkaListenerContainerFactory", groupId = "${spring.kafka.consumer.group-id}", properties="${app.consumer.props}")
 	public void consume(@Payload List<EventMessage> eventMessages,
 			@Headers MessageHeaders headers) throws Exception {
 		for (EventMessage eventMessage : eventMessages) 
 		{
-		  logger.info(String.format("Consuming message: %s - KafkaTemplate.transactionIdPrefix: %s", eventMessage, this.kafkaTemplate.getTransactionIdPrefix()));
+		  logger.info(String.format("Consuming message: %s - "
+		  		+ "KafkaTemplate.transactionIdPrefix: %s"
+		  		, eventMessage
+				  , this.kafkaTemplate.getTransactionIdPrefix()));
 		  EventMessage msg = new EventMessage(eventMessage.getDescription()+"");
 		  eventMessageService.insert(msg);
 		  this.kafkaTemplate.send(topicToPublish,eventMessage);
@@ -134,4 +136,5 @@ public class EventProcessor {
     	    return null;
     	  });
     }
+    
 }

@@ -31,13 +31,13 @@ public class EventProcessorConfig {
 	private boolean producerPerConsumerPartition;
 		
 	@Value("${app.producer.client-id}")
-	private String producerClientId;
+	private String producerClientId;	
 	
 	@Value("${spring.kafka.producer.key-serializer}")
 	private String keySerializer; 
 	
 	@Value("${spring.kafka.producer.value-serializer}")
-	private String valueSerializer; 
+	private String valueSerializer;
 		
     private final Logger logger = LoggerFactory.getLogger(EventProcessorConfig.class);
          
@@ -45,9 +45,9 @@ public class EventProcessorConfig {
     public Map<String, Object> producerConfigs() throws ClassNotFoundException {
         Map<String, Object> props = new HashMap<>();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, producer_bootstrap_servers);
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, Class.forName(valueSerializer));
         props.put(ProducerConfig.CLIENT_ID_CONFIG,producerClientId);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, Class.forName(keySerializer));
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, Class.forName(valueSerializer));
         return props;
     }
     
